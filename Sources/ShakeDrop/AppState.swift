@@ -1,8 +1,7 @@
 import AppKit
-import Observation
+import Combine
 
-@Observable
-final class AppState {
+final class AppState: ObservableObject {
     let fileCollection = FileCollection()
     let shakeDetector = ShakeDetector()
     let menuBarManager = MenuBarManager()

@@ -1,9 +1,8 @@
 import Foundation
-import Observation
+import Combine
 
-@Observable
-final class FileCollection {
-    private(set) var files: [URL] = []
+final class FileCollection: ObservableObject {
+    @Published private(set) var files: [URL] = []
     private var fileSet: Set<URL> = []
 
     var count: Int { files.count }
