@@ -59,15 +59,23 @@ final class AppState: ObservableObject {
 
     // MARK: - Permissions
 
-    private func checkAccessibilityPermission() {
-        let options = [kAXTrustedCheckOptionPrompt.takeRetainedValue() as String: true]
-        let trusted = AXIsProcessTrustedWithOptions(options as CFDictionary)
+    private var hasPromptedPermission = false
 
-        if !trusted {
-            print("[ShakeDrop] ⚠️ 需要辅助功能权限以监听鼠标事件")
-        } else if !shakeDetector.isMonitoring {
-            // 权限已授予但监听未启动，重试
-            shakeDetector.start()
+    private func checkAccessibilityPermission() {
+        let trusted = AXIsProcessTrusted()
+
+        if trusted {
+            if !shakeDetector.isMonitoring {
+                shakeDetector.start()
+            }
+        } else {
+            print("[ShakeDrop] ⚠️ 需要辅助功能权限 — 请到 系统设置 → 隐私与安全性 → 辅助功能 中开启")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+                guard let self, !self.hasPromptedPermission else { return }
+                self.hasPromptedPermission = true
+                let options = [kAXTrustedCheckOptionPrompt.takeRetainedValue() as String: true] as CFDictionary
+                AXIsProcessTrustedWithOptions(options)
+            }
         }
     }
 }
