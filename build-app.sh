@@ -30,6 +30,9 @@ if [ -f "Resources/AppIcon.icns" ]; then
     cp "Resources/AppIcon.icns" "$RESOURCES_DIR/AppIcon.icns"
 fi
 
+echo "🔐 自签名（保持权限记录）..."
+codesign --force --deep -s - "$APP_BUNDLE" 2>/dev/null || true
+
 echo ""
 echo "✅ 完成: $APP_BUNDLE"
 echo ""
