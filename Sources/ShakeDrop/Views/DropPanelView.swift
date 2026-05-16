@@ -3,7 +3,7 @@ import UniformTypeIdentifiers
 import AppKit
 
 struct DropPanelView: View {
-    var fileCollection: FileCollection
+    @ObservedObject var fileCollection: FileCollection
     var onDropURLs: ([URL]) -> Void
     var onRemoveFile: (Int) -> Void
     var onRemoveAll: () -> Void
