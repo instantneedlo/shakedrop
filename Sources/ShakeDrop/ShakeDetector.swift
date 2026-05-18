@@ -4,6 +4,12 @@ import Foundation
 final class ShakeDetector {
     var onShakeDetected: ((CGPoint) -> Void)?
 
+    private static let fileDragTypes: Set<NSPasteboard.PasteboardType> = [
+        .fileURL,
+        NSPasteboard.PasteboardType("public.file-url"),
+        NSPasteboard.PasteboardType("NSFilenamesPboardType")
+    ]
+
     private let windowDuration: TimeInterval = 1.5
     private let minReversals = 4
     private let minDisplacement: CGFloat = 100
@@ -12,9 +18,14 @@ final class ShakeDetector {
     private var samples: [(point: CGPoint, timestamp: TimeInterval)] = []
     private var lastDetectionTime: TimeInterval = 0
     private var monitor: Any?
+    private var dragPasteboardChangeCountAtMouseDown: Int?
 
     func start() {
-        monitor = NSEvent.addGlobalMonitorForEvents(matching: .leftMouseDragged) { [weak self] event in
+        guard monitor == nil else { return }
+
+        monitor = NSEvent.addGlobalMonitorForEvents(
+            matching: [.leftMouseDown, .leftMouseDragged, .leftMouseUp]
+        ) { [weak self] event in
             self?.processEvent(event)
         }
 
@@ -29,6 +40,7 @@ final class ShakeDetector {
             self.monitor = nil
         }
         samples.removeAll()
+        dragPasteboardChangeCountAtMouseDown = nil
     }
 
     var isMonitoring: Bool { monitor != nil }
@@ -36,10 +48,29 @@ final class ShakeDetector {
     // MARK: - Private
 
     private func processEvent(_ event: NSEvent) {
+        switch event.type {
+        case .leftMouseDown:
+            samples.removeAll()
+            dragPasteboardChangeCountAtMouseDown = NSPasteboard(name: .drag).changeCount
+            return
+        case .leftMouseUp:
+            samples.removeAll()
+            dragPasteboardChangeCountAtMouseDown = nil
+            return
+        case .leftMouseDragged:
+            break
+        default:
+            return
+        }
+
         let now = ProcessInfo.processInfo.systemUptime
 
         // 冷却期内直接跳过
         guard now - lastDetectionTime >= cooldownDuration else { return }
+        guard isCurrentFileDrag() else {
+            samples.removeAll()
+            return
+        }
 
         let point = NSEvent.mouseLocation
         samples.append((point, now))
@@ -90,5 +121,28 @@ final class ShakeDetector {
         }
 
         return reversals >= minReversals
+    }
+
+    private func isCurrentFileDrag() -> Bool {
+        let dragPasteboard = NSPasteboard(name: .drag)
+        guard let initialChangeCount = dragPasteboardChangeCountAtMouseDown,
+              dragPasteboard.changeCount != initialChangeCount else {
+            return false
+        }
+
+        return Self.hasFileDragContent(in: dragPasteboard)
+    }
+
+    private static func hasFileDragContent(in dragPasteboard: NSPasteboard) -> Bool {
+        if let types = dragPasteboard.types,
+           types.contains(where: { fileDragTypes.contains($0) }) {
+            return true
+        }
+
+        let urls = dragPasteboard.readObjects(
+            forClasses: [NSURL.self],
+            options: [.urlReadingFileURLsOnly: true]
+        )
+        return urls?.isEmpty == false
     }
 }
